@@ -6,6 +6,8 @@ import vue from '@vitejs/plugin-vue';
 import AutoImport from 'unplugin-auto-import/vite';
 import Components from 'unplugin-vue-components/vite';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
+import legacyPlugin from '@vitejs/plugin-legacy';
+import babel from 'vite-plugin-babel';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -37,6 +39,10 @@ export default defineConfig({
                     ? // https://github.com/electron-vite/vite-plugin-electron-renderer/issues/78#issuecomment-2053600808
                       undefined
                     : {},
+        }),
+        babel(),
+        legacyPlugin({
+            targets: ['>0.01%, edge>=50, firefox>=53, chrome>=53, safari>=9, chromeAndroid>=53, iOS>=8']
         }),
     ],
 });

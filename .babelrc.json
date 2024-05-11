@@ -1,0 +1,10 @@
+{
+    "presets": [
+        [
+            "@babel/preset-env",
+            {
+                "targets": ">0.01%, edge>=50, firefox>=53, chrome>=53, safari>=9, chromeAndroid>=53, iOS>=8" // 这里是目标浏览器列表
+            }
+        ]
+    ]
+}

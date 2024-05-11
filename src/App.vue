@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, unref, computed } from 'vue';
-import type { FormInstance } from 'element-plus';
+import { ref, unref, computed, watch } from 'vue';
+import type { FormInstance, UploadInstance } from 'element-plus';
 import { UploadFilled, Tools, DeleteFilled, CirclePlus } from '@element-plus/icons-vue';
 import { useStorage } from '@vueuse/core';
 
@@ -13,9 +13,10 @@ interface IFormItem {
     value: string;
 }
 const formRef = ref<FormInstance>();
-const curColumnIndex = ref<any>(2);
+const upload = ref<UploadInstance>();
 
 const dynamicValidateForm: any = useStorage('cfg', {
+    curColumnIndex: 0,
     formItemCfg: [
         {
             key: Date.now(),
@@ -46,6 +47,10 @@ const tableInfo: any = ref({
             label: '其他',
             value: 'other',
         },
+        {
+            label: '文件名称',
+            value: 'fileName',
+        },
     ],
 });
 
@@ -63,6 +68,10 @@ const cptableInfo: any = computed(() => {
                     label: '其他',
                     value: 'other',
                 },
+                {
+                    label: '文件名称',
+                    value: 'fileName',
+                },
             ]),
     });
 });
@@ -77,18 +86,16 @@ const confirmClick = () => {
     });
 };
 
-const options = ref<any>([]);
-const dataXlsxValue = ref<any>([]);
+const fileList = ref<any>([]);
 
-const calcRes = (value: any) => {
-    console.log(value);
+const calcRes = (value: any, fileName: string) => {
     const data = value.map((v: any) => {
-        return `${v[curColumnIndex.value]}`;
+        return `${v[dynamicValidateForm.value.curColumnIndex]}`;
     });
 
     const res = dynamicValidateForm.value.formItemCfg.reduce((pre: any, cur: any) => {
         if (cur.valueKey !== 'other') {
-            const includesVal = cur.value.split(',').map((v:any) => `${v}`.trim());
+            const includesVal = cur.value.split(',').map((v: any) => `${v}`.trim());
             const len = data.filter((it: any) => includesVal.includes(`${it}`.trim())).length;
             pre[cur.valueKey] = len;
         } else {
@@ -97,40 +104,47 @@ const calcRes = (value: any) => {
         return pre;
     }, {});
     res.other = data.length - Object.keys(res).reduce((p: any, c: any) => p + res[c], 0);
-    tableInfo.value.showData = [res];
+    res.fileName = fileName;
+    tableInfo.value.showData.push(res);
 };
 
 declare var XlsxPopulate: any;
 
-
-const onChange = (file: any) => {
-    XlsxPopulate?.fromDataAsync(file.raw).then((workbook: any) => {
-        const value = workbook.sheet(0).usedRange().value();
-        dataXlsxValue.value = value;
-        if (value.length) {
-            options.value = value[0].map((_: any, i: number) => {
-                return {
-                    label: `${i}`,
-                    value: `${i}`,
-                };
+watch(
+    [() => fileList.value, () => dynamicValidateForm.value],
+    ([val, valForm]: any[]) => {
+        console.log('val=>', val, valForm);
+        tableInfo.value.showData = [];
+        if (val && val.length) {
+            val.map((file: any) => {
+                return new Promise((r: any, j: any) => {
+                    XlsxPopulate?.fromDataAsync(file.raw).then((workbook: any) => {
+                        const value = workbook.sheet(0).usedRange().value();
+                        calcRes(value, file.name);
+                        r(true);
+                    }).catch(j)
+                });
             });
         }
-        calcRes(dataXlsxValue.value)
-    });
-};
+    },
+    {
+        deep: true
+    }
+);
+
 </script>
 
 <template>
     <div class="app-main">
         <div class="app-header">
-            <el-select class="header-select" size="small" v-model="curColumnIndex" placeholder="选择统计的列" style="width: 140px">
-                <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
             <el-icon @click="handleSet" class="header-icon"><tools /></el-icon>
         </div>
         <el-drawer v-model="show" title="设置" direction="ltr" size="70%">
             <template #default>
                 <el-form ref="formRef" :model="dynamicValidateForm" label-width="auto" class="demo-dynamic">
+                    <el-form-item :label="'统计的列数'">
+                        <el-input class="header-select" style="width: 140px" v-model="dynamicValidateForm.curColumnIndex" />
+                    </el-form-item>
                     <el-form-item>
                         <em class="em">类目为你需要统计的大类名称（随便取）例如: A类; &nbsp;类目项为用英文逗号分隔开的项目, 例如：a1,a2,a3</em>
                     </el-form-item>
@@ -161,11 +175,10 @@ const onChange = (file: any) => {
             </template>
         </el-drawer>
         <div class="tools-main">
-            <el-upload :on-change="onChange" accept=".xlsx" class="upload-comp" drag :auto-upload="false" multiple>
+            <el-upload v-model:file-list="fileList" ref="upload" accept=".xlsx" class="upload-comp" drag :auto-upload="false" multiple>
                 <el-icon class="el-icon--upload"><upload-filled /></el-icon>
                 <div class="el-upload__text">Drop file here or <em>click to upload</em></div>
             </el-upload>
-            <el-button class="calc" type="primary" @click="calcRes(dataXlsxValue)">计算</el-button>
         </div>
         <el-table class="table-res" :data="cptableInfo.showData" border style="width: 100%">
             <el-table-column :prop="it.value" :label="it.label" v-for="it in cptableInfo.tableItems" :key="it.label" />
@@ -175,7 +188,7 @@ const onChange = (file: any) => {
 
 <style lang="scss" scoped>
 .app-main {
-    .em{
+    .em {
         color: #409eff;
         font-size: 12px;
     }
@@ -185,15 +198,13 @@ const onChange = (file: any) => {
     }
     .app-header {
         display: flex;
+        flex: 1;
         align-items: center;
         height: 30px;
         box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); /* 阴影效果 */
         margin-bottom: 4px;
-        .header-select{
-            margin-left: auto;
-        }
         .header-icon {
-            margin: 0 20px;
+            margin: 0 20px 0 auto;
         }
     }
     .item-wrapper {
@@ -223,7 +234,7 @@ const onChange = (file: any) => {
         .upload-comp {
             width: 50%;
         }
-        .calc{
+        .calc {
             margin: 20px;
         }
     }
