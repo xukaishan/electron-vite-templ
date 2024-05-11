@@ -64,12 +64,12 @@ import { UnwrapRef } from 'vue'
 declare module 'vue' {
   interface GlobalComponents {}
   interface ComponentCustomProperties {
-    readonly ElMessage: UnwrapRef<typeof import('element-plus/es')['ElMessage']>
+
   }
 }
 declare module '@vue/runtime-core' {
   interface GlobalComponents {}
   interface ComponentCustomProperties {
-    readonly ElMessage: UnwrapRef<typeof import('element-plus/es')['ElMessage']>
+
   }
 }
