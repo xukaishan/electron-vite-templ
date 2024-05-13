@@ -42,7 +42,8 @@ export default defineConfig({
         }),
         babel(),
         legacyPlugin({
-            targets: ['>0.01%, edge>=50, firefox>=53, chrome>=53, safari>=9, chromeAndroid>=53, iOS>=8']
+            targets: ['>0.01%, edge>=50, firefox>=53, chrome>=53, safari>=9, chromeAndroid>=53, iOS>=8'],
+            renderModernChunks: false
         }),
     ],
 });

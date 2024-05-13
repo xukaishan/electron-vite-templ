@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, unref, computed, watch } from 'vue';
+import type { Ref } from 'vue'
 import type { FormInstance, UploadInstance } from 'element-plus';
 import { UploadFilled, Tools, DeleteFilled, CirclePlus } from '@element-plus/icons-vue';
 import { useStorage } from '@vueuse/core';
@@ -8,14 +9,21 @@ const show = ref<any>(false);
 const handleSet = () => {
     show.value = true;
 };
-interface IFormItem {
-    key: number;
-    value: string;
-}
+
 const formRef = ref<FormInstance>();
 const upload = ref<UploadInstance>();
 
-const dynamicValidateForm: any = useStorage('cfg', {
+type formItemCfg = {
+    key: number | string,
+    valueKey?: string,
+    value: string
+}
+type formCfg = {
+    curColumnIndex: number,
+    formItemCfg: formItemCfg[]
+}
+
+const dynamicValidateForm: Ref<formCfg> = useStorage('cfg', {
     curColumnIndex: 0,
     formItemCfg: [
         {
@@ -26,7 +34,7 @@ const dynamicValidateForm: any = useStorage('cfg', {
     ],
 });
 
-const removeFormIten = (item: IFormItem) => {
+const removeFormIten = (item: formItemCfg) => {
     const index = dynamicValidateForm.value.formItemCfg.indexOf(item);
     if (index !== -1) {
         dynamicValidateForm.value.formItemCfg.splice(index, 1);
