@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, unref, computed, watch } from 'vue';
-import type { Ref } from 'vue'
+import type { Ref } from 'vue';
 import type { FormInstance, UploadInstance } from 'element-plus';
+import { ElNotification } from 'element-plus';
 import { UploadFilled, Tools, DeleteFilled, CirclePlus } from '@element-plus/icons-vue';
 import { useStorage } from '@vueuse/core';
 
@@ -14,14 +15,14 @@ const formRef = ref<FormInstance>();
 const upload = ref<UploadInstance>();
 
 type formItemCfg = {
-    key: number | string,
-    valueKey?: string,
-    value: string
-}
+    key: number | string;
+    valueKey?: string;
+    value: string[];
+};
 type formCfg = {
-    curColumnIndex: number,
-    formItemCfg: formItemCfg[]
-}
+    curColumnIndex: number;
+    formItemCfg: formItemCfg[];
+};
 
 const dynamicValidateForm: Ref<formCfg> = useStorage('cfg', {
     curColumnIndex: 0,
@@ -29,10 +30,12 @@ const dynamicValidateForm: Ref<formCfg> = useStorage('cfg', {
         {
             key: Date.now(),
             valueKey: '',
-            value: '',
+            value: [],
         },
     ],
 });
+
+console.log('dynamicValidateForm=>', dynamicValidateForm);
 
 const removeFormIten = (item: formItemCfg) => {
     const index = dynamicValidateForm.value.formItemCfg.indexOf(item);
@@ -95,15 +98,17 @@ const confirmClick = () => {
 };
 
 const fileList = ref<any>([]);
+const options: Ref<any> = useStorage('options', []);
 
 const calcRes = (value: any, fileName: string) => {
     const data = value.map((v: any) => {
         return `${v[dynamicValidateForm.value.curColumnIndex]}`;
     });
+    console.log('data=>', data);
 
     const res = dynamicValidateForm.value.formItemCfg.reduce((pre: any, cur: any) => {
         if (cur.valueKey !== 'other') {
-            const includesVal = cur.value.split(',').map((v: any) => `${v}`.trim());
+            const includesVal = cur.value.map((v: any) => `${v}`.trim());
             const len = data.filter((it: any) => includesVal.includes(`${it}`.trim())).length;
             pre[cur.valueKey] = len;
         } else {
@@ -126,20 +131,39 @@ watch(
         if (val && val.length) {
             val.map((file: any) => {
                 return new Promise((r: any, j: any) => {
-                    XlsxPopulate?.fromDataAsync(file.raw).then((workbook: any) => {
-                        const value = workbook.sheet(0).usedRange().value();
-                        calcRes(value, file.name);
-                        r(true);
-                    }).catch(j)
+                    XlsxPopulate?.fromDataAsync(file.raw)
+                        .then((workbook: any) => {
+                            const value = workbook.sheet(0).usedRange().value();
+                            calcRes(value, file.name);
+                            const opts = Array.from(
+                                new Set(
+                                    value.map((v: any) => {
+                                        return `${v[dynamicValidateForm.value.curColumnIndex]}`;
+                                    }),
+                                ),
+                            ).map((it: any) => {
+                                return {
+                                    label: it,
+                                    value: it,
+                                };
+                            });
+                            const arr = opts.filter((itemB) => !options.value.some((itemA: any) => itemA.label === itemB.label));
+                            console.log('arr=>', arr);
+                            if (arr.length > 0) {
+                                alert(`存在新增的项目, 需重新配置: ${arr.map(v => v.label).join(';')}`)
+                            }
+                            options.value = opts;
+                            r(true);
+                        })
+                        .catch(j);
                 });
             });
         }
     },
     {
-        deep: true
-    }
+        deep: true,
+    },
 );
-
 </script>
 
 <template>
@@ -169,7 +193,10 @@ watch(
                     >
                         <div class="item-wrapper">
                             <el-input class="input-left item" v-model="item.valueKey" />
-                            <el-input type="textarea" class="input-right item" v-model.trim="item.value" />
+                            <!--  <el-input type="textarea" class="input-right item" v-model.trim="item.value" /> -->
+                            <el-select v-model="item.value" multiple placeholder="Select" style="width: 240px">
+                                <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
+                            </el-select>
                             <el-icon v-if="index === dynamicValidateForm.formItemCfg.length - 1" class="input-add" title="新增类目" @click.prevent="addFormIten"><CirclePlus /></el-icon>
                             <el-icon class="input-del" color="#d24545a3" title="删除类目" @click.prevent="removeFormIten(item)"><DeleteFilled /></el-icon>
                         </div>
