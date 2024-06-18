@@ -2,7 +2,7 @@
 import { ref, unref, computed, watch } from 'vue';
 import type { Ref } from 'vue';
 import type { FormInstance, UploadInstance } from 'element-plus';
-import { ElNotification } from 'element-plus';
+import { ElMessageBox } from 'element-plus';
 import { UploadFilled, Tools, DeleteFilled, CirclePlus } from '@element-plus/icons-vue';
 import { useStorage } from '@vueuse/core';
 
@@ -48,7 +48,7 @@ const addFormIten = () => {
     dynamicValidateForm.value.formItemCfg.push({
         key: Date.now(),
         valueKey: '',
-        value: '',
+        value: [],
     });
 };
 const tableInfo: any = ref({
@@ -138,7 +138,7 @@ watch(
                             const opts = Array.from(
                                 new Set(
                                     value.map((v: any) => {
-                                        return `${v[dynamicValidateForm.value.curColumnIndex]}`;
+                                        return `${v[dynamicValidateForm.value.curColumnIndex] || ''}`;
                                     }),
                                 ),
                             ).map((it: any) => {
@@ -150,7 +150,17 @@ watch(
                             const arr = opts.filter((itemB) => !options.value.some((itemA: any) => itemA.label === itemB.label));
                             console.log('arr=>', arr);
                             if (arr.length > 0) {
-                                alert(`存在新增的项目, 需重新配置: ${arr.map(v => v.label).join(';')}`)
+                                setTimeout(() => {
+                                    ElMessageBox.confirm(`项目已更改, 需重新配置: ${arr.map((v) => v.label).join(';')}`, '提示', {
+                                        confirmButtonText: '确认',
+                                        cancelButtonText: '取消',
+                                        type: 'warning',
+                                    })
+                                        .then(() => {
+                                            show.value = true
+                                        })
+                                        .catch(() => {});
+                                });
                             }
                             options.value = opts;
                             r(true);
@@ -171,7 +181,7 @@ watch(
         <div class="app-header">
             <el-icon @click="handleSet" class="header-icon"><tools /></el-icon>
         </div>
-        <el-drawer v-model="show" title="设置" direction="ltr" size="70%">
+        <el-drawer append-to-body style="z-index: 9999" v-model="show" title="设置" direction="ltr" size="70%">
             <template #default>
                 <el-form ref="formRef" :model="dynamicValidateForm" label-width="auto" class="demo-dynamic">
                     <el-form-item :label="'统计的列数'">
@@ -192,9 +202,8 @@ watch(
                         }"
                     >
                         <div class="item-wrapper">
-                            <el-input class="input-left item" v-model="item.valueKey" />
-                            <!--  <el-input type="textarea" class="input-right item" v-model.trim="item.value" /> -->
-                            <el-select v-model="item.value" multiple placeholder="Select" style="width: 240px">
+                            <el-input style="width: 100px" class="input-left item" v-model="item.valueKey" />
+                            <el-select filterable v-model="item.value" multiple placeholder="Select" style="width: 240px">
                                 <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
                             </el-select>
                             <el-icon v-if="index === dynamicValidateForm.formItemCfg.length - 1" class="input-add" title="新增类目" @click.prevent="addFormIten"><CirclePlus /></el-icon>
@@ -210,7 +219,7 @@ watch(
             </template>
         </el-drawer>
         <div class="tools-main">
-            <el-upload v-model:file-list="fileList" ref="upload" accept=".xlsx" class="upload-comp" drag :auto-upload="false" multiple>
+            <el-upload :show-file-list="false" v-model:file-list="fileList" ref="upload" accept=".xlsx" class="upload-comp" drag :auto-upload="false" multiple>
                 <el-icon class="el-icon--upload"><upload-filled /></el-icon>
                 <div class="el-upload__text">Drop file here or <em>click to upload</em></div>
             </el-upload>
